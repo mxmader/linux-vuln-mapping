@@ -32,7 +32,7 @@ for version in distro_data:
 			print "  Local file: " + download_file
 			
 			if not os.path.exists(download_dir):
-				print "  Creating directory: " + download_dir
+				print "  Creating dir: " + download_dir
 				os.makedirs(download_dir)
 			
 			print "  Downloading file (chunking via stream)"
