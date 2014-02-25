@@ -1,0 +1,4 @@
+https://access.redhat.com/site/documentation/en-US/Red_Hat_Network/5.0.0/html/API_Documentation/packages/PackagesHandler.html
+https://access.redhat.com/site/documentation/en-US/Red_Hat_Network/5.0.0/html/API_Documentation/errata/ErrataHandler.html
+
+https://www.redhat.com/security/data/metrics/

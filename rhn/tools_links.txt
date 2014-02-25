@@ -1,0 +1,4 @@
+http://cefs.steve-meier.de/
+https://github.com/davidnutter/Centos-Errata
+https://github.com/jason-callaway/sat-iavms
+https://github.com/jason-callaway/rpm_changelog
