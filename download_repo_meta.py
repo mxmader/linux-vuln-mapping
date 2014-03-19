@@ -37,7 +37,15 @@ for version in distro_data:
 			
 			print "  Downloading file (chunking via stream)"
 			download_req = requests.get(download_url, stream=True)
+			
 			if download_req.status_code == 200:
 				with open(download_file, 'wb') as file_handle:
 					for chunk in download_req.iter_content(download_chunk_size):
 						file_handle.write(chunk)
+
+
+"""
+# consider this for validating repo file downloads. will need to update repo version scraper to catalog checksum type and content from repomod.xml
+import hashlib
+hashlib.sha256('foo').hexdigest()
+"""
