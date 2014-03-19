@@ -27,6 +27,9 @@ cd /path/to/linux-metadata-builder
 # download the repository metadata files from the URLs collected above
 ./download_repo_meta.py
 
+# configure the MariaDB (or MySQL) schema (NOTE: you will be prompted for the DB root user password)
+./setup_db.sh
+
 # parse the repository metadata files and transform into a relational database
 # iterate through package changelogs and extract CVE information
 # TODO: complete this
