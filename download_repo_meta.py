@@ -7,7 +7,7 @@ import requests
 import urlparse
 
 distro = "centos"
-distro_file = distro + "_repo_lineage.json"
+distro_file = distro + "_repo_meta_sources.json"
 download_base_dir = distro + "_repo_meta"
 download_chunk_size = 131072
 
@@ -24,8 +24,9 @@ for version in distro_data:
 	for repo_type in distro_data[version]:
 		print " Repo type: " + repo_type
 		
-		for meta_type, download_url in distro_data[version][repo_type].iteritems():
+		for meta_type, url_data in distro_data[version][repo_type].iteritems():
 
+			download_url = url_data['url']
 			download_dir = download_base_dir + "/" + version + "/" + repo_type
 			download_file = download_dir + "/" + posixpath.basename(urlparse.urlsplit(download_url).path)
 			print "  Download URL: " + download_url

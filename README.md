@@ -22,7 +22,7 @@ To build the data set from scratch, use this procedure from a system connected t
 cd /path/to/linux-metadata-builder
 
 # build a JSON manifest of URLs to various CentOS repository metadata files for all supported versions
-./get_centos_repo_urls.py
+./get_repo_meta_sources.py
 
 # download the repository metadata files from the URLs collected above
 ./download_repo_meta.py

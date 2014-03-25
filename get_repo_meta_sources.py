@@ -12,7 +12,7 @@ repo_metadata_index_file="repomd.xml"
 
 # outputs
 repo_lineage = {}
-output_file = "centos_repo_lineage.json"
+output_file = "centos_repo_meta_sources.json"
 
 # categories of repo metadata we care about
 repo_meta_types = [ 'other', 'primary', 'filelists', 'comps' ]
@@ -148,19 +148,34 @@ for link in matches:
 			sqlite_href_regex = re.compile(sqlite_regex.replace("data_type", repo_meta_type))
 			data_match = tree.findAll('location', href = sqlite_href_regex)
 
+			# Found a SQLite URL.
+			if data_match:
+
+				data_type = "sqlite"
+				compression_type = "bz2"
+
 			# didn't find sqlite. try xml
-			if not data_match:
+			else:
 
 				xml_href_regex = re.compile(xml_regex.replace("data_type", repo_meta_type))
 				data_match = tree.findAll('location', href = xml_href_regex)
 				
+				if data_match:
+					data_type = "xml"
+				
 				# prefer compressed XML if there's a choice
 				if len(data_match) > 1:
+
 					gz_match = [s for s in data_match if ".gz" in s]
 
 					if gz_match:
+						
 						print "found gz"
+						compression_type = "gz"
 						data_match = gz_match
+					else:
+						compression_type = ""
+					
 				
 				# couldn't find xml. give up
 				if not data_match:
@@ -168,9 +183,13 @@ for link in matches:
 					continue
 					
 			data_url = repo_type_url + data_match[0].get('href')
-			repo_lineage[version][repo_type][repo_meta_type] = data_url
+			repo_lineage[version][repo_type][repo_meta_type] = {}
+			repo_lineage[version][repo_type][repo_meta_type]['compression_type'] = data_type
+			repo_lineage[version][repo_type][repo_meta_type]['data_type'] = data_type
+			repo_lineage[version][repo_type][repo_meta_type]['url'] = data_url
 			print "  + " + repo_meta_type + " data: " + data_url
 
+print ""
 print "Writing data to: " + output_file
 with open(output_file, 'w') as file:
 	file.write(json.dumps(repo_lineage))
