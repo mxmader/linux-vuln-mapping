@@ -2,6 +2,7 @@
 
 from BeautifulSoup import BeautifulSoup as bsoup
 import json
+import pprint
 import requests
 import re
 import sys
@@ -32,9 +33,12 @@ vaulted_release_url_template = vault_url + "major_version.minor_version/repo_typ
 # regex for scraping versions from the vault index
 version_regex = re.compile(r'[0-9]+\.[0-9]+\/')
 
-# uncompiled regex for pulling out repodata sqlite and XML file URLs respectively (must sub-in data type then compile later)
-sqlite_regex = r'repodata/.*data_type\.sqlite.bz2'
-xml_regex = r'repodata/.*data_type\.xml(\.gz)?'
+## uncompiled regex for pulling out repodata sqlite and XML file URLs respectively (must sub-in data type then compile later)
+# assume that sqlite is always bz2 compressed
+sqlite_regex = r'repodata/.*data_type\.sqlite.bz2' 
+# give 2 options for XML, compressed or uncompressed.
+xml_gz_regex = r'repodata/.*data_type\.xml\.gz'
+xml_regex = r'repodata/.*data_type\.xml'
 
 # index of latest minor version discovered for given major version(s)
 latest_minor_versions = {}
@@ -120,6 +124,7 @@ for link in matches:
 	repo_url = repo_url_template.replace("major_version", major_version)
 	repo_url = repo_url.replace("minor_version", minor_version)
 	
+	# examine each data type in this repo
 	for repo_type in repo_types:
 		
 		repo_lineage[version][repo_type] = {}
@@ -144,47 +149,42 @@ for link in matches:
 			if repo_type == 'updates' and repo_meta_type == 'comps':
 				continue;
 			
+			data_type = ""
+			compression_type = ""
+			
 			# try to find a sqlite db - preferred
 			sqlite_href_regex = re.compile(sqlite_regex.replace("data_type", repo_meta_type))
 			data_match = tree.findAll('location', href = sqlite_href_regex)
 
 			# Found a SQLite URL.
 			if data_match:
-
 				data_type = "sqlite"
 				compression_type = "bz2"
 
-			# didn't find sqlite. try xml
+			# didn't find sqlite. try xml_gz
 			else:
 
-				xml_href_regex = re.compile(xml_regex.replace("data_type", repo_meta_type))
-				data_match = tree.findAll('location', href = xml_href_regex)
-				
+				xml_gz_href_regex = re.compile(xml_gz_regex.replace("data_type", repo_meta_type))
+				data_match = tree.findAll('location', href = xml_gz_href_regex)
+
 				if data_match:
+					compression_type = "gz"
 					data_type = "xml"
-				
-				# prefer compressed XML if there's a choice
-				if len(data_match) > 1:
+				else:
+					xml_href_regex = re.compile(xml_regex.replace("data_type", repo_meta_type))
+					data_match = tree.findAll('location', href = xml_href_regex)
 
-					gz_match = [s for s in data_match if ".gz" in s]
+					if data_match:
+						data_type = "xml"
 
-					if gz_match:
-						
-						print "found gz"
-						compression_type = "gz"
-						data_match = gz_match
-					else:
-						compression_type = ""
-					
-				
-				# couldn't find xml. give up
-				if not data_match:
-					print "  - No URL found for: " + repo_meta_type
-					continue
+			# couldn't find xml. give up
+			if not data_type:
+				print "  - No URL found for: " + repo_meta_type
+				continue
 					
 			data_url = repo_type_url + data_match[0].get('href')
 			repo_lineage[version][repo_type][repo_meta_type] = {}
-			repo_lineage[version][repo_type][repo_meta_type]['compression_type'] = data_type
+			repo_lineage[version][repo_type][repo_meta_type]['compression_type'] = compression_type
 			repo_lineage[version][repo_type][repo_meta_type]['data_type'] = data_type
 			repo_lineage[version][repo_type][repo_meta_type]['url'] = data_url
 			print "  + " + repo_meta_type + " data: " + data_url

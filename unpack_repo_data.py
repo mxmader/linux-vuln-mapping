@@ -15,10 +15,10 @@ with open(distro_file, 'r') as file_handle:
 	distro_data = json.loads(file_handle.read())
 	
 for version in distro_data:
-	print "[" + distro + " " + version + "]"
+	print "[", distro, version, "]"
 	
 	for repo_type in distro_data[version]:
-		print " Repo type: " + repo_type
+		print " Repo type:", repo_type
 		
 		for meta_type, url_data in distro_data[version][repo_type].iteritems():
 			
@@ -34,27 +34,36 @@ for version in distro_data:
 				uncompressed_file_path = download_base_dir + "/" + uncompressed_file_name
 				
 				if os.path.exists(uncompressed_file_path):
-					print " Uncompressed " + url_data['compression_type'] + " file exists: " + uncompressed_file_name
+					print " Uncompressed", url_data['compression_type'], "file exists:", uncompressed_file_name
 				else:
 					print " " + url_data['compression_type'] + " decompressing: " + compressed_file_name
 					
 					if url_data['compression_type'] == 'gz':
+				
+						print "decompressing gz file:", uncompressed_file_name
 						
-						with gzip.open(compressed_file_path, "rb") as gzip_file_handle:
-							with open(uncompressed_file_path, 'w') as flat_file_handle:
+						with gzip.open(compressed_file_path, "rb") as compressed_file_handle, open(uncompressed_file_path, 'w') as uncompressed_file_handle:
 
-								decoded = gzip_file_handle.read()
-								flat_file_handle.write(decoded)
+							decoded = compressed_file_handle.read()
+							uncompressed_file_handle.write(decoded)
 
 					elif url_data['compression_type'] == 'bz2':
 						
-						print "bz2 not yet implemented"
+						print "decompressing bz2 file:", uncompressed_file_name
+						
+						with open(uncompressed_file_path, 'wb') as uncompressed_file_handle, bz2.BZ2File(compressed_file_path, 'rb') as compressed_file_handle:
+							for data in iter(lambda : compressed_file_handle.read(100 * 1024), b''):
+								uncompressed_file_handle.write(data)
 				
+					else:
+						print "unknown compression type:", url_data['compression_type']
 					
 				
 			else:
+
 				uncompressed_file_name = posixpath.basename(urlparse.urlsplit(download_url).path)
 				uncompressed_file_path = download_base_dir + "/" + file_name
+				print "no decompression needed:", uncompressed_file_name
 				
 				
 			
