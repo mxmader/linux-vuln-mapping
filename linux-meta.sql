@@ -16,59 +16,6 @@
 /*!40111 SET @OLD_SQL_NOTES=@@SQL_NOTES, SQL_NOTES=0 */;
 
 --
--- Table structure for table `cve`
---
-
-DROP TABLE IF EXISTS `cve`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!40101 SET character_set_client = utf8 */;
-CREATE TABLE `cve` (
-  `cve` varchar(16) NOT NULL,
-  `description` text NOT NULL,
-  `published` date DEFAULT NULL,
-  `modified` date DEFAULT NULL,
-  `title` varchar(16) NOT NULL,
-  PRIMARY KEY (`cve`)
-) ENGINE=InnoDB DEFAULT CHARSET=latin1;
-/*!40101 SET character_set_client = @saved_cs_client */;
-
---
--- Dumping data for table `cve`
---
-
-LOCK TABLES `cve` WRITE;
-/*!40000 ALTER TABLE `cve` DISABLE KEYS */;
-/*!40000 ALTER TABLE `cve` ENABLE KEYS */;
-UNLOCK TABLES;
-
---
--- Table structure for table `cve_reference`
---
-
-DROP TABLE IF EXISTS `cve_reference`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!40101 SET character_set_client = utf8 */;
-CREATE TABLE `cve_reference` (
-  `id` int(32) unsigned NOT NULL AUTO_INCREMENT,
-  `cve` varchar(16) NOT NULL,
-  `url` varchar(255) NOT NULL,
-  `description` text NOT NULL,
-  PRIMARY KEY (`id`),
-  KEY `cve` (`cve`),
-  CONSTRAINT `cve_reference_ibfk_2` FOREIGN KEY (`cve`) REFERENCES `cve` (`cve`)
-) ENGINE=InnoDB DEFAULT CHARSET=latin1;
-/*!40101 SET character_set_client = @saved_cs_client */;
-
---
--- Dumping data for table `cve_reference`
---
-
-LOCK TABLES `cve_reference` WRITE;
-/*!40000 ALTER TABLE `cve_reference` DISABLE KEYS */;
-/*!40000 ALTER TABLE `cve_reference` ENABLE KEYS */;
-UNLOCK TABLES;
-
---
 -- Table structure for table `distro`
 --
 
@@ -93,6 +40,59 @@ CREATE TABLE `distro` (
 LOCK TABLES `distro` WRITE;
 /*!40000 ALTER TABLE `distro` DISABLE KEYS */;
 /*!40000 ALTER TABLE `distro` ENABLE KEYS */;
+UNLOCK TABLES;
+
+--
+-- Table structure for table `mitre_cve`
+--
+
+DROP TABLE IF EXISTS `mitre_cve`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8 */;
+CREATE TABLE `mitre_cve` (
+  `cve` varchar(16) NOT NULL,
+  `description` text NOT NULL,
+  `published` date DEFAULT NULL,
+  `modified` date DEFAULT NULL,
+  `title` varchar(16) NOT NULL,
+  PRIMARY KEY (`cve`)
+) ENGINE=InnoDB DEFAULT CHARSET=latin1;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Dumping data for table `mitre_cve`
+--
+
+LOCK TABLES `mitre_cve` WRITE;
+/*!40000 ALTER TABLE `mitre_cve` DISABLE KEYS */;
+/*!40000 ALTER TABLE `mitre_cve` ENABLE KEYS */;
+UNLOCK TABLES;
+
+--
+-- Table structure for table `mitre_cve_reference`
+--
+
+DROP TABLE IF EXISTS `mitre_cve_reference`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8 */;
+CREATE TABLE `mitre_cve_reference` (
+  `id` int(32) unsigned NOT NULL AUTO_INCREMENT,
+  `cve` varchar(16) NOT NULL,
+  `url` varchar(1024) NOT NULL,
+  `description` text NOT NULL,
+  PRIMARY KEY (`id`),
+  KEY `cve` (`cve`),
+  CONSTRAINT `mitre_cve_reference_ibfk_2` FOREIGN KEY (`cve`) REFERENCES `mitre_cve` (`cve`)
+) ENGINE=InnoDB DEFAULT CHARSET=latin1;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Dumping data for table `mitre_cve_reference`
+--
+
+LOCK TABLES `mitre_cve_reference` WRITE;
+/*!40000 ALTER TABLE `mitre_cve_reference` DISABLE KEYS */;
+/*!40000 ALTER TABLE `mitre_cve_reference` ENABLE KEYS */;
 UNLOCK TABLES;
 
 --
@@ -258,4 +258,4 @@ UNLOCK TABLES;
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
--- Dump completed on 2014-05-16 22:10:32
+-- Dump completed on 2014-05-17 10:24:16
