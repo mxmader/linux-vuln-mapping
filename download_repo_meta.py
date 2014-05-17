@@ -12,7 +12,7 @@ download_chunk_size = 131072
 with open(distro_file, 'r') as file_handle:
 	distro_data = json.loads(file_handle.read())
 	
-for version in distro_data:
+for version in sorted(distro_data.iterkeys()):
 	print "[" + distro + " " + version + "]"
 	
 	# skip the version if it doesn't have repo types & associated meta URLs defined

@@ -187,12 +187,17 @@ for link in matches:
 				continue
 					
 			data_url = repo_type_url + data_match[0].get('href')
+			file_name = posixpath.basename(urlparse.urlsplit(data_url).path)
 			
-			# store the compressed file name only when applicable (otherwise it's blank)
+			# the URL links to a compressed file
 			if compression_type:
-				compressed_file_name = posixpath.basename(urlparse.urlsplit(data_url).path)
+				
+				compressed_file_name = file_name
+				uncompressed_file_name = compressed_file_name.replace('.' + compression_type, '')
 			
-			uncompressed_file_name = compressed_file_name.replace('.' + compression_type, '')
+			# the URL links to an uncompressed file
+			else:
+				uncompressed_file_name = file_name
 			
 			# store the repo attributes
 			repo_attributes[version][repo_type][repo_meta_type] = {}

@@ -46,6 +46,11 @@ export db_root_pw=your_maria_root_password
 
 ```
 
+## Import NIST CVE data
+```console
+./download_nist_cves.py
+```
+
 ## Optional - import MITRE CVE data
 
 ```console
