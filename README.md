@@ -19,6 +19,10 @@ releases matches any of these major versions, they should also be discovered / i
 To build the data set from scratch, use this procedure from a system connected to the internet:
 
 ```console
+# install the necessary python modules (list compiled from a Fedora 20 host referencing PyPI)
+yum install -y mariadb-devel (needed to build MySQL-python)
+pip install --upgrade beautifulsoup4 beautifulsoup lxml MySQL-python requests sqlsoup
+
 cd /path/to/linux-metadata-builder
 
 # build a JSON manifest of URLs to various CentOS repository metadata files for all supported versions
@@ -27,23 +31,28 @@ cd /path/to/linux-metadata-builder
 # download the repository metadata files from the URLs collected above
 ./download_repo_meta.py
 
-# configure the MariaDB (or MySQL) schema (NOTE: you will be prompted for the DB root user password)
+# decompress the repo metadata files
+./unpack_repo_meta.py
+
+# give the DB schema setup script the mariaDB root password (you'll be prompted multiple times otherwise)
+export db_root_pw=your_maria_root_password
+
+# configure the MariaDB (or MySQL) schema
 ./setup_db.sh
 
 # parse the repository metadata files and transform into a relational database
 # iterate through package changelogs and extract CVE information
-# TODO: complete this
-#./process_repo_meta.py
+./process_repo_meta.py
+
 ```
 
-## Optional / future functionality
+## Optional - import MITRE CVE data
 
 ```console
 # download the MITRE CVE databases (xml)
 ./download_mitre_cves.py
 
-# parse the MITRE CVE databases and transform into a relational database
-# scan package CVE relationships in order to link the MITRE metadata to a CentOS package
+# parse the MITRE CVE database and transform into a relational database
 # TODO: write this
 #./process_mitre_cves.py
 

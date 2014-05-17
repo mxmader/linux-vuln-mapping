@@ -2,17 +2,19 @@
 
 from BeautifulSoup import BeautifulSoup as bsoup
 import json
+import posixpath
 import pprint
 import requests
 import re
 import sys
+import urlparse
 
 # inputs
 arch="x86_64"
 repo_metadata_index_file="repomd.xml"
 
 # outputs
-repo_lineage = {}
+repo_attributes = {}
 output_file = "centos_repo_meta_sources.json"
 
 # categories of repo metadata we care about
@@ -102,7 +104,7 @@ for link in matches:
 	version = link.get('href').replace('/', '')
 	major_version, minor_version = version.split('.')
 	
-	repo_lineage[version] = {}
+	repo_attributes[version] = {}
 	
 	# we only care about certain major versions and beyond for compatibility's sake
 	if int(major_version) < min_major_version:
@@ -127,7 +129,7 @@ for link in matches:
 	# examine each data type in this repo
 	for repo_type in repo_types:
 		
-		repo_lineage[version][repo_type] = {}
+		repo_attributes[version][repo_type] = {}
 		
 		print " <" + repo_type + ">"
 		
@@ -149,6 +151,8 @@ for link in matches:
 			if repo_type == 'updates' and repo_meta_type == 'comps':
 				continue;
 			
+			compressed_file_name = ""
+			uncompressed_file_name = ""
 			data_type = ""
 			compression_type = ""
 			
@@ -183,13 +187,23 @@ for link in matches:
 				continue
 					
 			data_url = repo_type_url + data_match[0].get('href')
-			repo_lineage[version][repo_type][repo_meta_type] = {}
-			repo_lineage[version][repo_type][repo_meta_type]['compression_type'] = compression_type
-			repo_lineage[version][repo_type][repo_meta_type]['data_type'] = data_type
-			repo_lineage[version][repo_type][repo_meta_type]['url'] = data_url
+			
+			# store the compressed file name only when applicable (otherwise it's blank)
+			if compression_type:
+				compressed_file_name = posixpath.basename(urlparse.urlsplit(data_url).path)
+			
+			uncompressed_file_name = compressed_file_name.replace('.' + compression_type, '')
+			
+			# store the repo attributes
+			repo_attributes[version][repo_type][repo_meta_type] = {}
+			repo_attributes[version][repo_type][repo_meta_type]['compression_type'] = compression_type
+			repo_attributes[version][repo_type][repo_meta_type]['compressed_file_name'] = compressed_file_name
+			repo_attributes[version][repo_type][repo_meta_type]['uncompressed_file_name'] = uncompressed_file_name
+			repo_attributes[version][repo_type][repo_meta_type]['data_type'] = data_type
+			repo_attributes[version][repo_type][repo_meta_type]['url'] = data_url
 			print "  + " + repo_meta_type + " data: " + data_url
 
 print ""
 print "Writing data to: " + output_file
 with open(output_file, 'w') as file:
-	file.write(json.dumps(repo_lineage))
+	file.write(json.dumps(repo_attributes))

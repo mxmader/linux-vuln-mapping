@@ -2,9 +2,7 @@
 
 import json
 import os
-import posixpath
 import requests
-import urlparse
 
 distro = "centos"
 distro_file = distro + "_repo_meta_sources.json"
@@ -24,11 +22,17 @@ for version in distro_data:
 	for repo_type in distro_data[version]:
 		print " Repo type: " + repo_type
 		
-		for meta_type, url_data in distro_data[version][repo_type].iteritems():
+		for meta_type, repo_attributes in distro_data[version][repo_type].iteritems():
 
-			download_url = url_data['url']
+			download_url = repo_attributes['url']
 			download_dir = download_base_dir + "/" + version + "/" + repo_type
-			download_file = download_dir + "/" + posixpath.basename(urlparse.urlsplit(download_url).path)
+			download_file = download_dir + "/"
+			
+			if repo_attributes['compression_type']:
+				download_file += repo_attributes['compressed_file_name']
+			else:
+				download_file += repo_attributes['uncompressed_file_name']
+
 			print "  Download URL: " + download_url
 			print "  Local file: " + download_file
 			
@@ -46,7 +50,7 @@ for version in distro_data:
 
 
 """
-# consider this for validating repo file downloads. will need to update repo version scraper to catalog checksum type and content from repomod.xml
+# consider this for validating repo file downloads. will need to update repo version scraper to catalog checksum type and content from repomd.xml
 import hashlib
 hashlib.sha256('foo').hexdigest()
 """
