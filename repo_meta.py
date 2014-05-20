@@ -156,10 +156,13 @@ class repo_ingestion:
 				
 			for name, flags, epoch, version, release, pkgKey in provides:
 
+				# notice that the "name" property is cleansed of any non-ascii chars.
+				# as of this writing i don't feel like preserving chinese characters (utf-X)
+				# in font package feature names....
 				self.db.distro_package_version_provides.insert(
 					distro_package_version_id = distro_package_version.id,
 					flags = flags,
-					name = name,
+					name = name.encode('ascii', 'ignore'),
 					type = self.get_rpm_relation_type(name),
 					version = version
 				)
@@ -168,10 +171,11 @@ class repo_ingestion:
 
 			for name, flags, epoch, version, release, pkgKey, pre in requires:
 
+				# see previous note about 'name' property sanitization
 				self.db.distro_package_version_requires.insert(
 					distro_package_version_id = distro_package_version.id,
 					flags = flags,
-					name = name,
+					name = name.encode('ascii', 'ignore'),
 					type = self.get_rpm_relation_type(name),
 					version = version
 				)
@@ -184,28 +188,149 @@ class repo_ingestion:
 
 	def ingest_other_sqlite(self, file_path):
 		
-		print " + processing SQLite other data"
-		print file_path
+		print " + processing SQLite other data"		
+		sqlite_db = sqlsoup.SQLSoup("sqlite:///" + file_path)
+		
+		for package in sqlite_db.packages.all():
+			
+			# find the package from DB
+			where = sqlalchemy.and_(
+				self.db.distro_package_version.checksum == package.pkgId,
+				self.db.distro_package_version.distro_id == self.distro_id
+			)
+
+			# fetch the package record
+			distro_package_version = self.db.distro_package_version.filter(where).first()
+
+			if self.debug:
+				print "  +", distro_package_version.name, "looking for changelogs"	
+				
+			for pkgKey, author, date, changelog in sqlite_db.execute("select * from changelog where pkgKey = " + str(package.pkgKey)):
+				
+				# some older repo meta refers to CANs or "CVE Candidates". Treat
+				# these as CVEs since they're catalogged as such by NIST/MITRE
+				can_list = self.can_matcher.findall(changelog)
+				
+				#clean up the CAN list
+				can_list = [can.replace('CAN', 'CVE') for can in can_list]
+				cve_list = self.cve_matcher.findall(changelog)
+				
+				# concatenate the lists together (trusting that there's no dupes)
+				cve_list = can_list + cve_list
+
+				if cve_list:
+					
+					if self.debug:
+						pprint.pprint(cve_list)
+
+					for cve in cve_list:
+						
+						# add leading zeroes to non-4-digit CVE suffixes
+						# e.g. CVE-2005-468 becomes "CVE-2005-0468"
+						if len(cve) < 13:
+							cve_parts = cve.split('-')
+							cve_parts[2] = cve_parts[2].zfill(4)
+							cve = '-'.join(cve_parts)
+
+						# make sure this relationship doesn't exist (dont bother checking the "no match" table)
+						where = sqlalchemy.and_(
+							self.db.distro_package_version_cve.distro_package_version_id == distro_package_version.id,
+							self.db.distro_package_version_cve.cve == cve
+						)
+
+						cve_map_check = self.db.distro_package_version_cve.filter(where).first()
+						
+						# relationship is already mapped; move on to the next package/CVE pair
+						if cve_map_check:
+							continue
+
+						# if we can't find the linked CVE, then drop this into the "no match" table for later reference.
+						try:
+							self.db.mitre_cve.filter(self.db.mitre_cve.cve == cve).one()							
+
+							if self.debug:
+								print "    + mapping to package & mitre list:",cve
+
+							self.db.distro_package_version_cve.insert(
+								distro_package_version_id = distro_package_version.id,
+								cve = cve
+							)
+
+						except NoResultFound:
+							
+							if self.debug:
+								print "    + mapping to package & no_match:",cve
+						
+							self.db.distro_package_version_cve_no_match.insert(
+								distro_package_version_id = distro_package_version.id,
+								cve = cve
+							)	
+							continue
+			
+			# add this package's CVEs to the database
+			self.db.commit()
+		
 
 	# We don't care about filelists at the moment
 	def ingest_filelists_sqlite(self, file_path):
 		
 		print " + processing SQLite filelist data"
-		print file_path
+		sqlite_db = sqlsoup.SQLSoup("sqlite:///" + file_path)
+
+		# compose a filelist insert transaction for each package
+		for package in sqlite_db.packages.all():
+
+			# find the package from DB
+			where = sqlalchemy.and_(
+				self.db.distro_package_version.checksum == package.pkgId,
+				self.db.distro_package_version.distro_id == self.distro_id
+			)
+
+			# fetch the package record
+			distro_package_version = self.db.distro_package_version.filter(where).first()
+
+			if self.debug:
+				print "  +", distro_package_version.name, "looking for files/dirs"			
+			
+			# collect the file names
+			for pkgKey, dirname, filenames, filetypes in sqlite_db.execute("select * from filelist where pkgKey = " + package.pkgKey):
+				
+				# pull apart file/dir list out of column
+				file_items = filenames.split('/')
+				
+				for key, item in file_items.iteritems():
+					
+					file_type = filetypes[key]
+					
+					if file_type == "f":
+						file_type = "file"
+					elif file_type == "d":
+						file_type = "dir"
+					
+					file_path = dirname + "/" + item
+								
+					if self.debug:
+						print "   + adding", file_type + ":", file_path
+					
+					self.db.distro_package_version_file.insert(
+						distro_package_version_id = distro_package_version.id,
+						name = file_path,
+						type = file_type
+					)
+
+			self.db.commit
 		
 	##############################
 	# XML ingestion functions
 	##############################
-	
 	
 	def ingest_comps_xml(self, file_path, distro_id):
 		
 		print " + processing XML comps data"
 		
 		tree = bsoup(self.get_file_content(file_path), ['lxml', 'xml'])
-		groups = tree.find_all('group')
 		
-		for group in groups:
+		for group in tree.find_all('group'):
 
 			if self.debug:
 				print " ",group.id.text
@@ -222,10 +347,8 @@ class repo_ingestion:
 			)
 			
 			self.db.commit()
-		
-			packages = group.packagelist.find_all('packagereq')
 
-			for package in packages:
+			for package in group.packagelist.find_all('packagereq'):
 			
 				if self.debug:	
 					print "  ",package.text
@@ -265,10 +388,12 @@ class repo_ingestion:
 			)
 
 			# fetch the package record
-			distro_package_version = self.db.distro_package_version.filter(where).one()
+			distro_package_version = self.db.distro_package_version.filter(where).first()
 			
 			# collect the file names
 			for file in package.find_all('file'):
+				
+				name = file.text.encode('ascii', 'ignore')
 				
 				if 'type' in file.attrs:
 					file_type = file['type']
@@ -276,11 +401,11 @@ class repo_ingestion:
 					file_type = 'file'
 				
 				if self.debug:
-					print "   + adding", file_type + ":", file.text 
+					print "   + adding", file_type + ":", name
 					
 				self.db.distro_package_version_file.insert(
 					distro_package_version_id = distro_package_version.id,
-					name = file.text,
+					name = name,
 					type = file_type
 				)
 
@@ -308,6 +433,7 @@ class repo_ingestion:
 				self.db.distro_package_version.release == version_data['rel'],
 				self.db.distro_package_version.version == version_data['ver']
 			)
+
 			distro_package_version = self.db.distro_package_version.filter(where).first()
 			
 			for changelog in package.find_all('changelog'):
