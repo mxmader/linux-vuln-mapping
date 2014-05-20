@@ -31,36 +31,43 @@ cd /path/to/linux-metadata-builder
 # download the repository metadata files from the URLs collected above
 ./download_repo_meta.py
 
+# download the MITRE CVE databases (xml)
+./download_mitre_cves.py
+
+# ingest the MITRE CVE database into MariaDB
+./process_mitre_cves.py
+
 # decompress the repo metadata files
 ./unpack_repo_meta.py
 
-# give the DB schema setup script the mariaDB root password (you'll be prompted multiple times otherwise)
+# give the DB schema setup script the MariaDB (or MySQL) root password (you'll be prompted multiple times otherwise)
 export db_root_pw=your_maria_root_password
 
-# configure the MariaDB (or MySQL) schema
+# configure the MariaDB schema
 ./setup_db.sh
 
 # parse the repository metadata files and transform into a relational database
 # iterate through package changelogs and extract CVE information
 ./process_repo_meta.py
 
+# parse the package group metadata for the most recent minor version of each major version of Enterprise Linux
+./process_relationships.py
+
 ```
 
-## Import NIST CVE data
+## Notes on CVE data
+
+Eventually we will replace the MITRE CVE data with the NIST CVE data since it's more granular.
+There is an incomplete / notional schema currently in place for normalized NIST data.
+
+These steps retained here for future use.
+
 ```console
+# download the NIST CVE databases (xml) - not yet referenced
 ./download_nist_cves.py
-```
 
-## Optional - import MITRE CVE data
-
-```console
-# download the MITRE CVE databases (xml)
-./download_mitre_cves.py
-
-# parse the MITRE CVE database and transform into a relational database
-# TODO: write this
-#./process_mitre_cves.py
-
+# ingest the NIST CVE database into MariaDB
+#./process_nist_cves.py
 ```
 
 
