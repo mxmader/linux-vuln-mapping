@@ -88,7 +88,7 @@ CREATE TABLE `distro_package_version` (
   `full_name` varchar(255) NOT NULL,
   `name` varchar(255) NOT NULL,
   `release` varchar(32) NOT NULL,
-  `version` varchar(24) NOT NULL,
+  `version` varchar(32) NOT NULL,
   PRIMARY KEY (`id`),
   KEY `version` (`version`,`arch`),
   KEY `package_id` (`package_id`),
@@ -463,4 +463,4 @@ UNLOCK TABLES;
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
--- Dump completed on 2014-05-19 21:36:51
+-- Dump completed on 2014-05-20 17:19:56
