@@ -20,20 +20,22 @@ distro_ingestion.debug = debug
 ingestion_sequence = [
 	{ "os" : "primary" },
 	{ "os" : "filelists" },
-	{ "os" : "other" },
+	#{ "os" : "other" },
 	{ "updates" : "primary" },
 	{ "updates" : "filelists" },
-	{ "updates" : "other" },
+	#{ "updates" : "other" },
 	#{ "os" : "comps" }	
 ]
 
 with open(distro_file, 'r') as file_handle:
 	distro_data = json.loads(file_handle.read())
-	
-for version in sorted(distro_data.iterkeys()):
+
+for version in ["5.6", "6.0"]:	
+#for version in sorted(distro_data.iterkeys()):
 	
 	# skip the version if it isn't well defined
-	if not distro_data[version]:
+	if version not in distro_data or not distro_data[version]:
+		print "Skipping:", version
 		continue
 		
 	print "[" + distro + " " + version + "]"
@@ -44,7 +46,7 @@ for version in sorted(distro_data.iterkeys()):
 	distro_id = distro_ingestor.ingest_distro(major_version, minor_version)
 	
 	# initialize the repo meta ingestion instance. we'll re-use it for each repo (os, updates) & meta type (primary, other, filelists, comps).
-	repo_ingestor = repo_ingestion(distro_id, int(major_version))
+	repo_ingestor = repo_ingestion(distro_id, major_version)
 	
 	for ingestion in ingestion_sequence:
 		for repo_type,meta_type in ingestion.iteritems():

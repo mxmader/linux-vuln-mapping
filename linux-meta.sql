@@ -82,15 +82,19 @@ CREATE TABLE `distro_package_version` (
   `id` int(32) unsigned NOT NULL AUTO_INCREMENT,
   `distro_id` int(32) unsigned NOT NULL,
   `package_id` int(32) unsigned DEFAULT NULL,
-  `version` varchar(24) NOT NULL,
   `arch` varchar(24) NOT NULL,
-  `release` varchar(32) NOT NULL,
+  `checksum` varchar(255) NOT NULL,
   `epoch` int(32) unsigned NOT NULL,
   `full_name` varchar(255) NOT NULL,
+  `name` varchar(255) NOT NULL,
+  `release` varchar(32) NOT NULL,
+  `version` varchar(24) NOT NULL,
   PRIMARY KEY (`id`),
   KEY `version` (`version`,`arch`),
   KEY `package_id` (`package_id`),
   KEY `full_name` (`full_name`),
+  KEY `name` (`name`),
+  KEY `checksum` (`checksum`),
   CONSTRAINT `distro_package_version_ibfk_1` FOREIGN KEY (`package_id`) REFERENCES `package` (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=latin1;
 /*!40101 SET character_set_client = @saved_cs_client */;
@@ -137,13 +141,13 @@ DROP TABLE IF EXISTS `distro_package_version_cve`;
 /*!40101 SET character_set_client = utf8 */;
 CREATE TABLE `distro_package_version_cve` (
   `id` int(32) unsigned NOT NULL AUTO_INCREMENT,
-  `package_version_id` int(32) unsigned NOT NULL,
+  `distro_package_version_id` int(32) unsigned NOT NULL,
   `cve` varchar(24) NOT NULL,
   PRIMARY KEY (`id`),
+  UNIQUE KEY `distro_package_version_id` (`distro_package_version_id`,`cve`),
   KEY `cve` (`cve`),
-  KEY `package_version_id` (`package_version_id`),
-  CONSTRAINT `distro_package_version_cve_ibfk_3` FOREIGN KEY (`cve`) REFERENCES `mitre_cve` (`cve`),
-  CONSTRAINT `distro_package_version_cve_ibfk_2` FOREIGN KEY (`package_version_id`) REFERENCES `distro_package_version` (`id`) ON UPDATE CASCADE
+  CONSTRAINT `distro_package_version_cve_ibfk_2` FOREIGN KEY (`cve`) REFERENCES `mitre_cve` (`cve`),
+  CONSTRAINT `distro_package_version_cve_ibfk_1` FOREIGN KEY (`distro_package_version_id`) REFERENCES `distro_package_version` (`id`) ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=latin1;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
@@ -157,44 +161,68 @@ LOCK TABLES `distro_package_version_cve` WRITE;
 UNLOCK TABLES;
 
 --
--- Table structure for table `distro_package_version_dependency`
+-- Table structure for table `distro_package_version_cve_no_match`
 --
 
-DROP TABLE IF EXISTS `distro_package_version_dependency`;
+DROP TABLE IF EXISTS `distro_package_version_cve_no_match`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!40101 SET character_set_client = utf8 */;
-CREATE TABLE `distro_package_version_dependency` (
+CREATE TABLE `distro_package_version_cve_no_match` (
   `id` int(32) unsigned NOT NULL AUTO_INCREMENT,
   `distro_package_version_id` int(32) unsigned NOT NULL,
-  `flags` varchar(16) DEFAULT NULL,
-  `name` varchar(255) NOT NULL,
-  `type` varchar(16) NOT NULL,
-  `version` varchar(16) DEFAULT NULL,
+  `cve` varchar(24) NOT NULL,
   PRIMARY KEY (`id`),
-  KEY `type` (`type`(1)),
-  KEY `content` (`name`),
+  KEY `cve` (`cve`),
   KEY `package_version_id` (`distro_package_version_id`),
-  CONSTRAINT `distro_package_version_dependency_ibfk_1` FOREIGN KEY (`distro_package_version_id`) REFERENCES `distro_package_version` (`id`) ON UPDATE CASCADE
+  CONSTRAINT `distro_package_version_cve_no_match_ibfk_1` FOREIGN KEY (`distro_package_version_id`) REFERENCES `distro_package_version` (`id`) ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=latin1;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
--- Dumping data for table `distro_package_version_dependency`
+-- Dumping data for table `distro_package_version_cve_no_match`
 --
 
-LOCK TABLES `distro_package_version_dependency` WRITE;
-/*!40000 ALTER TABLE `distro_package_version_dependency` DISABLE KEYS */;
-/*!40000 ALTER TABLE `distro_package_version_dependency` ENABLE KEYS */;
+LOCK TABLES `distro_package_version_cve_no_match` WRITE;
+/*!40000 ALTER TABLE `distro_package_version_cve_no_match` DISABLE KEYS */;
+/*!40000 ALTER TABLE `distro_package_version_cve_no_match` ENABLE KEYS */;
 UNLOCK TABLES;
 
 --
--- Table structure for table `distro_package_version_function`
+-- Table structure for table `distro_package_version_file`
 --
 
-DROP TABLE IF EXISTS `distro_package_version_function`;
+DROP TABLE IF EXISTS `distro_package_version_file`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!40101 SET character_set_client = utf8 */;
-CREATE TABLE `distro_package_version_function` (
+CREATE TABLE `distro_package_version_file` (
+  `id` int(32) unsigned NOT NULL AUTO_INCREMENT,
+  `distro_package_version_id` int(32) unsigned NOT NULL,
+  `name` varchar(255) NOT NULL,
+  `type` varchar(8) NOT NULL,
+  PRIMARY KEY (`id`),
+  KEY `name` (`name`),
+  KEY `distro_package_version_id` (`distro_package_version_id`),
+  CONSTRAINT `distro_package_version_file_ibfk_1` FOREIGN KEY (`distro_package_version_id`) REFERENCES `distro_package_version` (`id`) ON UPDATE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=latin1;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Dumping data for table `distro_package_version_file`
+--
+
+LOCK TABLES `distro_package_version_file` WRITE;
+/*!40000 ALTER TABLE `distro_package_version_file` DISABLE KEYS */;
+/*!40000 ALTER TABLE `distro_package_version_file` ENABLE KEYS */;
+UNLOCK TABLES;
+
+--
+-- Table structure for table `distro_package_version_provides`
+--
+
+DROP TABLE IF EXISTS `distro_package_version_provides`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8 */;
+CREATE TABLE `distro_package_version_provides` (
   `id` int(32) unsigned NOT NULL AUTO_INCREMENT,
   `distro_package_version_id` int(32) unsigned NOT NULL,
   `flags` varchar(16) DEFAULT NULL,
@@ -204,17 +232,49 @@ CREATE TABLE `distro_package_version_function` (
   PRIMARY KEY (`id`),
   KEY `distro_package_version_id` (`distro_package_version_id`),
   KEY `distro_package_version_id_2` (`distro_package_version_id`),
-  CONSTRAINT `distro_package_version_function_ibfk_1` FOREIGN KEY (`distro_package_version_id`) REFERENCES `distro_package_version` (`id`) ON UPDATE CASCADE
+  KEY `name` (`name`),
+  CONSTRAINT `distro_package_version_provides_ibfk_1` FOREIGN KEY (`distro_package_version_id`) REFERENCES `distro_package_version` (`id`) ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=latin1;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
--- Dumping data for table `distro_package_version_function`
+-- Dumping data for table `distro_package_version_provides`
 --
 
-LOCK TABLES `distro_package_version_function` WRITE;
-/*!40000 ALTER TABLE `distro_package_version_function` DISABLE KEYS */;
-/*!40000 ALTER TABLE `distro_package_version_function` ENABLE KEYS */;
+LOCK TABLES `distro_package_version_provides` WRITE;
+/*!40000 ALTER TABLE `distro_package_version_provides` DISABLE KEYS */;
+/*!40000 ALTER TABLE `distro_package_version_provides` ENABLE KEYS */;
+UNLOCK TABLES;
+
+--
+-- Table structure for table `distro_package_version_requires`
+--
+
+DROP TABLE IF EXISTS `distro_package_version_requires`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8 */;
+CREATE TABLE `distro_package_version_requires` (
+  `id` int(32) unsigned NOT NULL AUTO_INCREMENT,
+  `distro_package_version_id` int(32) unsigned NOT NULL,
+  `flags` varchar(16) DEFAULT NULL,
+  `name` varchar(255) NOT NULL,
+  `type` varchar(16) NOT NULL,
+  `version` varchar(16) DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  KEY `type` (`type`(1)),
+  KEY `package_version_id` (`distro_package_version_id`),
+  KEY `name` (`name`),
+  CONSTRAINT `distro_package_version_requires_ibfk_1` FOREIGN KEY (`distro_package_version_id`) REFERENCES `distro_package_version` (`id`) ON UPDATE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=latin1;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Dumping data for table `distro_package_version_requires`
+--
+
+LOCK TABLES `distro_package_version_requires` WRITE;
+/*!40000 ALTER TABLE `distro_package_version_requires` DISABLE KEYS */;
+/*!40000 ALTER TABLE `distro_package_version_requires` ENABLE KEYS */;
 UNLOCK TABLES;
 
 --
@@ -403,4 +463,4 @@ UNLOCK TABLES;
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
--- Dump completed on 2014-05-17 18:27:47
+-- Dump completed on 2014-05-19 21:36:51

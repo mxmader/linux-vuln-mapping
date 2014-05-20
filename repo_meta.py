@@ -1,11 +1,17 @@
 from bs4 import BeautifulSoup as bsoup
+from sqlalchemy.orm.exc import NoResultFound as NoResultFound
 import posixpath
+import pprint
 import re
 import sqlsoup
 import sqlalchemy
 
 class distro_ingestion:
 	
+	# hardcoded values that need to change in future for other distro support
+	distro_name = "CentOS"
+	distro_family = "enterprise"
+		
 	db = sqlsoup.SQLSoup('mysql://linux-meta:fershuretotallybro@localhost/linux-meta')
 	debug = False
 	
@@ -15,20 +21,35 @@ class distro_ingestion:
 	# Generic distro ingestion functions
 	def ingest_distro(self, major_version, minor_version):
 	
-		distro = self.db.distro.insert(
-			name = "CentOS",
-			family = "enterprise",
-			major_version = int(major_version),
-			minor_version = int(minor_version)
+		major_version = int(major_version)
+		minor_version = int(minor_version)
+
+		where = sqlalchemy.and_(
+			self.db.distro.name == self.distro_name,
+			self.db.distro.family == self.distro_family,
+			self.db.distro.major_version == major_version,
+			self.db.distro.minor_version == minor_version
 		)
-		
+
 		try:
-			self.db.commit()
+			distro = self.db.distro.filter(where).one()
+			if self.debug:
+				print "  distro already exists"
 		
-		# ignore dupes
-		except sqlalchemy.exc.IntegrityError:
-			pass
-			
+		except NoResultFound:
+	
+			if self.debug:
+				print "  adding distro"
+				
+			distro = self.db.distro.insert(
+				name = self.distro_name,
+				family = self.distro_family,
+				major_version = major_version,
+				minor_version = minor_version
+			)
+		
+			self.db.commit()
+
 		return distro.id
 	
 
@@ -52,20 +73,30 @@ class repo_ingestion:
 	rpmlib_match_regex = r'^rpmlib\(.*\)'
 	rpmlib_matcher = None
 
-	# different major versions have their own xml tags in certain cases. here, we catalog them.
-	rpm_requires_tag = { 4 : 'requires', 5 : 'requires' }
-	rpm_provides_tag = { 4 : 'provides', 5 : 'provides' }
-	rpm_entry_tag    = { 4 : 'entry',    5 : 'entry'    }
+	# used to detect changelogs with CAN/CVE references
+	can_match_regex = r'(CAN\-[0-9]+\-[0-9]+)'
+	can_matcher = None
+	
+	cve_match_regex = r'(CVE\-[0-9]+\-[0-9]+)'
+	cve_matcher = None
+
+	# catalog some commonly used xml tags
+	rpm_requires_tag = 'requires'
+	rpm_provides_tag = 'provides'
+	rpm_entry_tag    = 'entry'
+	package_tag = 'package'
 
 	def __init__(self, distro_id, major_version):
 		if self.debug:
-			print "Initializing"		
+			print "Initializing repo ingestion"		
 			
 		self.distro_id = distro_id
-		self.major_version = major_version
+		self.major_version = int(major_version)
 		self.lib_matcher = re.compile(self.lib_match_regex)
 		self.rpmlib_matcher = re.compile(self.rpmlib_match_regex)
 		self.file_path_matcher = re.compile(self.file_path_match_regex)
+		self.can_matcher = re.compile(self.can_match_regex)
+		self.cve_matcher = re.compile(self.cve_match_regex)
 
 	def get_file_content(self, file_path):
 
@@ -85,6 +116,7 @@ class repo_ingestion:
 			return 'package'
 	
 	# empty string-fill any missing package dep/provides data
+	# TODO: consider the "defaultdict" module instead
 	def fill_missing_package_dep_data(self, dependency):
 
 		for key in ['flags', 'ver', 'epoch', 'pre', 'rel']:
@@ -97,20 +129,78 @@ class repo_ingestion:
 	# SQLite ingestion functions
 	##############################
 	def ingest_primary_sqlite(self, file_path):
-		print " " ,file_path
+		
+		sqlite_db = sqlsoup.SQLSoup("sqlite:///" + file_path)
+		
+		for package in sqlite_db.packages.all():
+
+			if self.debug:
+				print " ",package.name,package.version
+			
+			distro_package_version = self.db.distro_package_version.insert(
+				distro_id = self.distro_id,
+				arch = package.arch,
+				checksum = package.pkgId,
+				name = package.name,
+				epoch = package.epoch,
+				full_name = posixpath.basename(package.location_href),
+				release = package.release,
+				version = package.version			
+				)
+			
+			# commit the package insert now so we get an id / primary key for it
+			# to link child records
+			self.db.commit()
+	 
+			provides = sqlite_db.execute("select * from provides where pkgKey = " + str(package.pkgKey))
+				
+			for name, flags, epoch, version, release, pkgKey in provides:
+
+				self.db.distro_package_version_provides.insert(
+					distro_package_version_id = distro_package_version.id,
+					flags = flags,
+					name = name,
+					type = self.get_rpm_relation_type(name),
+					version = version
+				)
+			
+			requires = sqlite_db.execute("select * from requires where pkgKey = " + str(package.pkgKey))
+
+			for name, flags, epoch, version, release, pkgKey, pre in requires:
+
+				self.db.distro_package_version_requires.insert(
+					distro_package_version_id = distro_package_version.id,
+					flags = flags,
+					name = name,
+					type = self.get_rpm_relation_type(name),
+					version = version
+				)
+			
+			if self.debug:
+				print "   Committing deps and provided functionality"
+				
+			self.db.commit()		
+			
 
 	def ingest_other_sqlite(self, file_path):
-		print " " ,file_path
+		
+		print " + processing SQLite other data"
+		print file_path
 
 	# We don't care about filelists at the moment
 	def ingest_filelists_sqlite(self, file_path):
-		pass
+		
+		print " + processing SQLite filelist data"
+		print file_path
+		
 	##############################
 	# XML ingestion functions
 	##############################
 	
 	
 	def ingest_comps_xml(self, file_path, distro_id):
+		
+		print " + processing XML comps data"
 		
 		tree = bsoup(self.get_file_content(file_path), ['lxml', 'xml'])
 		groups = tree.find_all('group')
@@ -150,18 +240,148 @@ class repo_ingestion:
 				 """
 
 	def ingest_filelists_xml(self, file_path):
-		pass
+
+		print " + processing XML filelist data"
+		tree = bsoup(self.get_file_content(file_path), ['lxml', 'xml'])
+
+		# compose a filelist insert transaction for each package
+		for package in tree.find_all(self.package_tag):
+
+			version_data = package.find('version')
+
+			if self.debug:
+				print "  +", package['name'], "looking for files/dirs"
+				print package['arch'], version_data['epoch'],package['name'],version_data['rel'],version_data['ver'],self.distro_id
+			
+			
+			# find the package from DB
+			where = sqlalchemy.and_(
+				self.db.distro_package_version.arch == package['arch'],
+				self.db.distro_package_version.epoch == version_data['epoch'],
+				self.db.distro_package_version.name == package['name'],
+				self.db.distro_package_version.release == version_data['rel'],
+				self.db.distro_package_version.version == version_data['ver'],
+				self.db.distro_package_version.distro_id == self.distro_id
+			)
+
+			# fetch the package record
+			distro_package_version = self.db.distro_package_version.filter(where).one()
+			
+			# collect the file names
+			for file in package.find_all('file'):
+				
+				if 'type' in file.attrs:
+					file_type = file['type']
+				else:
+					file_type = 'file'
+				
+				if self.debug:
+					print "   + adding", file_type + ":", file.text 
+					
+				self.db.distro_package_version_file.insert(
+					distro_package_version_id = distro_package_version.id,
+					name = file.text,
+					type = file_type
+				)
+
+			self.db.commit
 
 	def ingest_other_xml(self, file_path):
-		print " " ,file_path
-
-	def ingest_primary_xml(self, file_path):
+		
+		print " + processing XML other data"
 		
 		tree = bsoup(self.get_file_content(file_path), ['lxml', 'xml'])
-		packages = tree.find_all('package')
-		rpm_requires_tag = self.rpm_requires_tag[self.major_version]
-		rpm_provides_tag = self.rpm_provides_tag[self.major_version]
-		rpm_entry_tag = self.rpm_entry_tag[self.major_version]
+		
+		for package in tree.find_all('package'):
+			
+			if self.debug:
+				print "  + looking up db for", package['name'], "by checksum:", package['pkgid']
+			
+			version_data = package.find('version')
+			
+			where = sqlalchemy.and_(
+				self.db.distro_package_version.distro_id == self.distro_id,
+				self.db.distro_package_version.arch == package['arch'],
+				self.db.distro_package_version.epoch == version_data['epoch'],
+				self.db.distro_package_version.checksum == package['pkgid'],
+				self.db.distro_package_version.name == package['name'], 
+				self.db.distro_package_version.release == version_data['rel'],
+				self.db.distro_package_version.version == version_data['ver']
+			)
+			distro_package_version = self.db.distro_package_version.filter(where).first()
+			
+			for changelog in package.find_all('changelog'):
+				
+				# some older repo meta refers to CANs or "CVE Candidates". Treat
+				# these as CVEs since they're catalogged as such by NIST/MITRE
+				can_list = self.can_matcher.findall(changelog.text)
+				
+				#clean up the CAN list
+				can_list = [can.replace('CAN', 'CVE') for can in can_list]
+				cve_list = self.cve_matcher.findall(changelog.text)
+				
+				# concatenate the lists together (trusting that there's no dupes)
+				cve_list = can_list + cve_list
+
+				if cve_list:
+					
+					if self.debug:
+						pprint.pprint(cve_list)
+
+					for cve in cve_list:
+						
+						# add leading zeroes to non-4-digit CVE suffixes
+						# e.g. CVE-2005-468 becomes "CVE-2005-0468"
+						if len(cve) < 13:
+							cve_parts = cve.split('-')
+							cve_parts[2] = cve_parts[2].zfill(4)
+							cve = '-'.join(cve_parts)
+
+						# make sure this relationship doesn't exist (dont bother checking the "no match" table)
+						where = sqlalchemy.and_(
+							self.db.distro_package_version_cve.distro_package_version_id == distro_package_version.id,
+							self.db.distro_package_version_cve.cve == cve
+						)
+
+						cve_map_check = self.db.distro_package_version_cve.filter(where).first()
+						
+						# relationship is already mapped; move on to the next package/CVE pair
+						if cve_map_check:
+							continue
+
+						# if we can't find the linked CVE, then drop this into the "no match" table for later reference.
+						try:
+							self.db.mitre_cve.filter(self.db.mitre_cve.cve == cve).one()							
+
+							if self.debug:
+								print "    + mapping to package & mitre list:",cve
+
+							self.db.distro_package_version_cve.insert(
+								distro_package_version_id = distro_package_version.id,
+								cve = cve
+							)
+
+						except NoResultFound:
+							
+							if self.debug:
+								print "    + mapping to package & no_match:",cve
+						
+							self.db.distro_package_version_cve_no_match.insert(
+								distro_package_version_id = distro_package_version.id,
+								cve = cve
+							)	
+							continue
+			
+			# add this package's CVEs to the database
+			self.db.commit()
+		
+		
+	def ingest_primary_xml(self, file_path):
+		
+		print " + processing XML primary data"
+		
+		tree = bsoup(self.get_file_content(file_path), ['lxml', 'xml'])
+		packages = tree.find_all(self.package_tag)
 		
 		for package in packages:
 			
@@ -172,23 +392,24 @@ class repo_ingestion:
 			
 			distro_package_version = self.db.distro_package_version.insert(
 				distro_id = self.distro_id,
-				name = name,
 				arch = package.arch.text,
-				version = package.version['ver'],
-				release = package.version['rel'],
+				checksum = package.find('checksum', attrs={ 'pkgid' : 'YES'}).text,
+				name = name,
 				epoch = package.version['epoch'],
-				full_name = posixpath.basename(package.location['href'])
+				full_name = posixpath.basename(package.location['href']),
+				release = package.version['rel'],
+				version = package.version['ver']			
 				)
 			
 			self.db.commit()
 
-			provided_things = package.find(rpm_provides_tag).find_all(rpm_entry_tag)
+			provides = package.find(self.rpm_provides_tag).find_all(self.rpm_entry_tag)
 			
-			for function in provided_things:
+			for function in provides:
 
 				function = self.fill_missing_package_dep_data(function)
 
-				self.db.distro_package_version_function.insert(
+				self.db.distro_package_version_provides.insert(
 					distro_package_version_id = distro_package_version.id,
 					flags = function['flags'],
 					name = function['name'],
@@ -196,13 +417,13 @@ class repo_ingestion:
 					version = function['ver']
 				)
 					
-			dependencies = package.find(rpm_requires_tag).find_all(rpm_entry_tag)
+			requires = package.find(self.rpm_requires_tag).find_all(self.rpm_entry_tag)
 
-			for dependency in dependencies:
+			for dependency in requires:
 
 				dependency = self.fill_missing_package_dep_data(dependency)
 
-				self.db.distro_package_version_dependency.insert(
+				self.db.distro_package_version_requires.insert(
 					distro_package_version_id = distro_package_version.id,
 					flags = dependency['flags'],
 					name = dependency['name'],
@@ -211,6 +432,6 @@ class repo_ingestion:
 				)
 			
 			if self.debug:
-				print "   Committing deps and provided functionality"
+				print "   Committing requirements and provided functionality"
 				
 			self.db.commit()		

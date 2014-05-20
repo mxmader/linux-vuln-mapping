@@ -1,3 +1,4 @@
 *_repo_meta/
 *_cves/
 *.json
+*.pyc

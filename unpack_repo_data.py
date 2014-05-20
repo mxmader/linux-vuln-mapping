@@ -9,12 +9,12 @@ distro = "centos"
 distro_file = distro + "_repo_meta_sources.json"
 download_base_dir = distro + "_repo_meta"
 download_chunk_size = 131072
-supported_compression_formats = [ 'gz', 'bzip2' ]
+supported_compression_formats = [ 'gz', 'bz2' ]
 
 with open(distro_file, 'r') as file_handle:
 	distro_data = json.loads(file_handle.read())
 	
-for version in distro_data:
+for version in sorted(distro_data.iterkeys()):
 	
 	for repo_type in distro_data[version]:
 		print "[", distro, version,"/",repo_type, "]"
@@ -74,8 +74,11 @@ for version in distro_data:
 						print "  Unknown compression type:", url_data['compression_type']
 					
 				
-			else:
+			elif os.path.isfile(uncompressed_file_path):
 				print "  Uncompressed file exists without compressed parent:", uncompressed_file_name
+			
+			else:
+				print "  ERROR: either unsupported compression type or", uncompressed_file_name, "does not exist"
 				
 				
 			
