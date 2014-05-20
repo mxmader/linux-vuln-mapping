@@ -2,3 +2,4 @@
 *_cves/
 *.json
 *.pyc
+*.log
