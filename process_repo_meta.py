@@ -18,20 +18,23 @@ distro_ingestion.debug = debug
 
 # define the ingestion sequence
 ingestion_sequence = [
-	{ "os" : "primary" },
-	{ "os" : "filelists" },
-	#{ "os" : "other" },
-	{ "updates" : "primary" },
-	{ "updates" : "filelists" },
-	#{ "updates" : "other" },
-	#{ "os" : "comps" }	
+	#{ "os" : "primary" },
+	#{ "os" : "filelists" },
+	{ "os" : "other" },
+	#{ "updates" : "primary" },
+	#{ "updates" : "filelists" },
+	#{ "updates" : "other" }
 ]
 
 with open(distro_file, 'r') as file_handle:
 	distro_data = json.loads(file_handle.read())
 
-for version in ["5.6", "6.0"]:	
-#for version in sorted(distro_data.iterkeys()):
+if len(sys.argv) == 2:
+	version_list = [ sys.argv[1] ]
+else:
+	version_list = sorted(distro_data.iterkeys())
+
+for version in version_list:
 	
 	# skip the version if it isn't well defined
 	if version not in distro_data or not distro_data[version]:
