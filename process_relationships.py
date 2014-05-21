@@ -60,7 +60,7 @@ for major_version in sorted(latest_versions):
 			
 		package = db.package.insert(
 			name = distro_package_version.name,
-			distro_id = distro.id
+			distro_id = distro.id,
 			distro_package_version_id = distro_package_version.id
 		)
 		
