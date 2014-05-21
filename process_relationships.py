@@ -101,46 +101,52 @@ for major_version in sorted(latest_versions):
 		
 		# go through each requirement and find a package to satisfy it
 		for requirement in requirements:
-			
-			where = sqlite.and_(
-				db.distro_package_version_provides.flags == requirement.flags,
-				db.distro_package_version_provides.name == requirement.name,
-				db.distro_package_version_provides.type == requirement.type,
-				db.distro_package_version_provides.version == requirement.version
-			}
 
 			satisfied_by = db.distro_package_version_provides.filter(where).first()
 			
 			if not satisfied_by:
 				if self.debug:
 					print "  + could not satisfy requirement:",requirement.id
-			else:
+				continue
+			
+			if requirement.type == 'library' or requirement.type == 'package':
+
+				where = sqlite.and_(
+					db.distro_package_version_provides.flags == requirement.flags,
+					db.distro_package_version_provides.name == requirement.name,
+					db.distro_package_version_provides.type == requirement.type,
+					db.distro_package_version_provides.version == requirement.version
+				)
+
+				satisfied_by = db.distro_package_version_provides.filter(where).first()
+
 				if self.debug:
 					print "  + requirement",requirement.id,"satisfied by:",satisfied_by.id
 				
-				if requirement.type == 'library' or requirement.type == 'package':
-				
-					# get the generic id for the dependency then map to the package (don't worry about dupes)
-					where = sqlalchemy.and_(
-						db.package.distro_id = distro.id,
-						db.package.distro_package_version.id = satisfied_by.id
-					)
+				# get the generic id for the dependency then map to the package (don't worry about dupes)
+				where = sqlalchemy.and_(
+					db.package.distro_id = distro.id,
+					db.package.distro_package_version.id = satisfied_by.id
+				)
 
-					dependency_package = db.package.filter(where).one()
-					
-					# add this to the list of required packages if it's not already
-					if not dependency_package.id:
-						if self.debug:
-							print "   + adding",dependency_package.id,"to list of deps"
-						requirements_list.add(dependency_package.id)
+				dependency_package = db.package.filter(where).one()
 
-				elif requirement.type == 'file':
+				# add this to the list of required packages if it's not already
+				if not dependency_package.id:
+					if self.debug:
+						print "   + adding",dependency_package.id,"to list of deps"
+					requirements_list.add(dependency_package.id)
+
+			elif requirement.type == 'file':
+
+				where = sqlalchemy.and_(
+					db.distro_package_version_file.name == requirement.name
 		
 		# insert the deduped list of deps to the DB
 		for dependency in requirements_list:
-			
+
 			db.package_to_required_package_map.insert(
-				package_id = package.id
+				package_id = package.id,
 				required_package_id = dependency
 			)
 			
