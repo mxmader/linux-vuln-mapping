@@ -293,12 +293,12 @@ class repo_ingestion:
 				print "  +", distro_package_version.name, "looking for files/dirs"			
 			
 			# collect the file names
-			for pkgKey, dirname, filenames, filetypes in sqlite_db.execute("select * from filelist where pkgKey = " + package.pkgKey):
+			for pkgKey, dirname, filenames, filetypes in sqlite_db.execute("select * from filelist where pkgKey = " + str(package.pkgKey)):
 				
 				# pull apart file/dir list out of column
 				file_items = filenames.split('/')
 				
-				for key, item in file_items.iteritems():
+				for key, item in enumerate(file_items):
 					
 					file_type = filetypes[key]
 					
@@ -324,16 +324,15 @@ class repo_ingestion:
 	# XML ingestion functions
 	##############################
 	
-	def ingest_comps_xml(self, file_path, distro_id):
+	def ingest_comps_xml(self, file_path):
 		
 		print " + processing XML comps data"
-		
 		tree = bsoup(self.get_file_content(file_path), ['lxml', 'xml'])
 		
 		for group in tree.find_all('group'):
 
 			if self.debug:
-				print " ",group.id.text
+				print "  +",group.id.text
 
 			if group.description:
 				description = group.description.text
@@ -351,16 +350,20 @@ class repo_ingestion:
 			for package in group.packagelist.find_all('packagereq'):
 			
 				if self.debug:	
-					print "  ",package.text
+					print "   +",package.text
 				
-				# TODO: Find the ID for this package 
+				# Find the ID for this high-level (versionless) package
+				my_package = self.db.package.filter(self.db.package.name == package.text).first()
 				
-				"""
-				 self.db.package_to_distro_group_map.insert(
-					package_id = my_package_id
-					package_group_id = my_package_group.id
+				self.db.package_to_distro_group_map.insert(
+					package_id = my_package.id,
+					distro_package_group_id = my_package_group.id
 				 )
-				 """
+				 
+			if self.debug:
+				print " + committing group to package map"
+				
+			self.db.commit()
 
 	def ingest_filelists_xml(self, file_path):
 

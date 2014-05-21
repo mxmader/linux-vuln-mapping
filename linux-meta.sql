@@ -88,7 +88,7 @@ CREATE TABLE `distro_package_version` (
   `full_name` varchar(255) NOT NULL,
   `name` varchar(255) NOT NULL,
   `release` varchar(32) NOT NULL,
-  `version` varchar(32) NOT NULL,
+  `version` varchar(48) NOT NULL,
   PRIMARY KEY (`id`),
   KEY `version` (`version`,`arch`),
   KEY `package_id` (`package_id`),
@@ -228,7 +228,7 @@ CREATE TABLE `distro_package_version_provides` (
   `flags` varchar(16) DEFAULT NULL,
   `name` varchar(255) NOT NULL,
   `type` varchar(16) NOT NULL,
-  `version` varchar(16) DEFAULT NULL,
+  `version` varchar(32) DEFAULT NULL,
   PRIMARY KEY (`id`),
   KEY `distro_package_version_id` (`distro_package_version_id`),
   KEY `distro_package_version_id_2` (`distro_package_version_id`),
@@ -259,7 +259,7 @@ CREATE TABLE `distro_package_version_requires` (
   `flags` varchar(16) DEFAULT NULL,
   `name` varchar(255) NOT NULL,
   `type` varchar(16) NOT NULL,
-  `version` varchar(16) DEFAULT NULL,
+  `version` varchar(32) DEFAULT NULL,
   PRIMARY KEY (`id`),
   KEY `type` (`type`(1)),
   KEY `package_version_id` (`distro_package_version_id`),
@@ -391,8 +391,14 @@ DROP TABLE IF EXISTS `package`;
 /*!40101 SET character_set_client = utf8 */;
 CREATE TABLE `package` (
   `id` int(32) unsigned NOT NULL AUTO_INCREMENT,
+  `distro_id` int(32) unsigned NOT NULL,
+  `distro_package_version_id` int(32) unsigned NOT NULL,
   `name` varchar(64) NOT NULL,
-  PRIMARY KEY (`id`)
+  PRIMARY KEY (`id`),
+  KEY `distro_id` (`distro_id`),
+  KEY `distro_package_version_id` (`distro_package_version_id`),
+  CONSTRAINT `package_ibfk_2` FOREIGN KEY (`distro_package_version_id`) REFERENCES `distro_package_version` (`id`) ON UPDATE CASCADE,
+  CONSTRAINT `package_ibfk_1` FOREIGN KEY (`distro_id`) REFERENCES `distro` (`id`) ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=latin1;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
@@ -463,4 +469,4 @@ UNLOCK TABLES;
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
--- Dump completed on 2014-05-20 17:19:56
+-- Dump completed on 2014-05-20 22:24:32
