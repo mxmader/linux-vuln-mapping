@@ -20,7 +20,7 @@ To build the data set from scratch, use this procedure from a system connected t
 
 ```console
 # install the necessary python modules (list compiled from a Fedora 20 host referencing PyPI)
-yum install -y python-devel libxml2-devel mariadb-devel (python module build deps) 
+yum install -y python-devel libxslt-devel libxml2-devel mariadb-devel (python module build deps) 
 pip install --upgrade beautifulsoup4 beautifulsoup lxml MySQL-python requests sqlsoup
 
 cd /path/to/linux-metadata-builder
