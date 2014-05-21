@@ -319,8 +319,8 @@ class repo_ingestion:
 					else:
 						file_path = dirname + "/" + item
 								
-					#if self.debug:
-					print "   + adding", file_type + ":", file_path
+					if self.debug:
+						print "   + adding", file_type + ":", file_path
 					
 					self.db.distro_package_version_file.insert(
 						distro_package_version_id = distro_package_version.id,
