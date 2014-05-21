@@ -11,7 +11,7 @@ import sqlsoup
 distro = "centos"
 distro_file = distro + "_repo_meta_sources.json"
 download_base_dir = distro + "_repo_meta"
-debug = False
+debug = True
 
 # set debug level for utility classes
 repo_ingestion.debug = debug
@@ -117,20 +117,24 @@ for major_version in sorted(latest_versions):
 			else:
 				if self.debug:
 					print "  + requirement",requirement.id,"satisfied by:",satisfied_by.id
-					
-				# get the generic id for the dependency then map to the package (don't worry about dupes)
-				where = sqlalchemy.and_(
-					db.package.distro_id = distro.id,
-					db.package.distro_package_version.id = satisfied_by.id
-				)
-
-				dependency_package = db.package.filter(where).one()
 				
-				# add this to the list of required packages if it's not already
-				if not dependency_package.id:
-					if self.debug:
-						print "   + adding",dependency_package.id,"to list of deps"
-					requirements_list.add(dependency_package.id)
+				if requirement.type == 'library' or requirement.type == 'package':
+				
+					# get the generic id for the dependency then map to the package (don't worry about dupes)
+					where = sqlalchemy.and_(
+						db.package.distro_id = distro.id,
+						db.package.distro_package_version.id = satisfied_by.id
+					)
+
+					dependency_package = db.package.filter(where).one()
+					
+					# add this to the list of required packages if it's not already
+					if not dependency_package.id:
+						if self.debug:
+							print "   + adding",dependency_package.id,"to list of deps"
+						requirements_list.add(dependency_package.id)
+
+				elif requirement.type == 'file':
 		
 		# insert the deduped list of deps to the DB
 		for dependency in requirements_list:

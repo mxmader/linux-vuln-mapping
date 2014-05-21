@@ -295,22 +295,32 @@ class repo_ingestion:
 			# collect the file names
 			for pkgKey, dirname, filenames, filetypes in sqlite_db.execute("select * from filelist where pkgKey = " + str(package.pkgKey)):
 				
+				if self.debug:
+					print "   + base dir",dirname
+					print "   + file names",filenames
+					print "   + file types",filetypes
+				
 				# pull apart file/dir list out of column
 				file_items = filenames.split('/')
 				
-				for key, item in enumerate(file_items):
+				# for every known file type, process its associated item (file or dir)
+				for key, file_type in enumerate(list(filetypes)):
 					
-					file_type = filetypes[key]
+					item = file_items[key]
 					
 					if file_type == "f":
 						file_type = "file"
 					elif file_type == "d":
 						file_type = "dir"
 					
-					file_path = dirname + "/" + item
+					# special case for files/dirs with fs root as the basedir
+					if dirname == "/":
+						file_path = dirname + item
+					else:
+						file_path = dirname + "/" + item
 								
-					if self.debug:
-						print "   + adding", file_type + ":", file_path
+					#if self.debug:
+					print "   + adding", file_type + ":", file_path
 					
 					self.db.distro_package_version_file.insert(
 						distro_package_version_id = distro_package_version.id,
