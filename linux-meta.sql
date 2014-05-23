@@ -149,35 +149,6 @@ LOCK TABLES `nist_cve_reference` WRITE;
 UNLOCK TABLES;
 
 --
--- Table structure for table `package`
---
-
-DROP TABLE IF EXISTS `package`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!40101 SET character_set_client = utf8 */;
-CREATE TABLE `package` (
-  `id` int(32) unsigned NOT NULL AUTO_INCREMENT,
-  `distro_id` int(32) unsigned NOT NULL,
-  `package_version_id` int(32) unsigned NOT NULL,
-  `name` varchar(64) NOT NULL,
-  PRIMARY KEY (`id`),
-  KEY `distro_id` (`distro_id`),
-  KEY `package_version_id` (`package_version_id`),
-  CONSTRAINT `package_ibfk_1` FOREIGN KEY (`distro_id`) REFERENCES `distro` (`id`) ON UPDATE CASCADE,
-  CONSTRAINT `package_ibfk_2` FOREIGN KEY (`package_version_id`) REFERENCES `package_version` (`id`) ON UPDATE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=latin1;
-/*!40101 SET character_set_client = @saved_cs_client */;
-
---
--- Dumping data for table `package`
---
-
-LOCK TABLES `package` WRITE;
-/*!40000 ALTER TABLE `package` DISABLE KEYS */;
-/*!40000 ALTER TABLE `package` ENABLE KEYS */;
-UNLOCK TABLES;
-
---
 -- Table structure for table `package_group`
 --
 
@@ -267,7 +238,6 @@ DROP TABLE IF EXISTS `package_version`;
 CREATE TABLE `package_version` (
   `id` int(32) unsigned NOT NULL AUTO_INCREMENT,
   `distro_id` int(32) unsigned NOT NULL,
-  `package_id` int(32) unsigned DEFAULT NULL,
   `arch` varchar(24) NOT NULL,
   `checksum` varchar(255) NOT NULL,
   `epoch` int(32) unsigned NOT NULL,
@@ -277,11 +247,11 @@ CREATE TABLE `package_version` (
   `version` varchar(48) NOT NULL,
   PRIMARY KEY (`id`),
   KEY `version` (`version`,`arch`),
-  KEY `package_id` (`package_id`),
   KEY `full_name` (`full_name`),
   KEY `name` (`name`),
   KEY `checksum` (`checksum`),
-  CONSTRAINT `package_version_ibfk_1` FOREIGN KEY (`package_id`) REFERENCES `package` (`id`)
+  KEY `distro_id` (`distro_id`),
+  CONSTRAINT `package_version_ibfk_1` FOREIGN KEY (`distro_id`) REFERENCES `distro` (`id`) ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=latin1;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
@@ -472,4 +442,4 @@ UNLOCK TABLES;
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
--- Dump completed on 2014-05-23 16:51:30
+-- Dump completed on 2014-05-23 16:58:08

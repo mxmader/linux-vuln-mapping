@@ -596,7 +596,7 @@ class repo_ingestion:
 		for package_version in self.db.package_version.filter(self.db.package_version.distro_id == self.distro_id):
 			
 			if self.debug:
-				print "  +",package_version.name
+				print "  +",package_version.name,package_version.version,package_version.release,package_version.arch
 			
 			requirements = self.db.package_version_requires.filter(self.db.package_version_requires.package_version_id == package_version.id).all()
 			
@@ -628,13 +628,16 @@ class repo_ingestion:
 						elif requirement.flags == 'LE':
 							operator = '<='
 							
-						version_clause = " and package_provides.version " + operator + " '" + requirement.version + "'"
+						version_clause = " and package_version_provides.version " + operator + " '" + requirement.version + "'"
+					
+					# sometimes library/package requirements have colons in them and DB engines think they're bind variables. yeah, no.
+					requirement_name = requirement.name.replace(':', '\:')
 					
 					sql = "select package_version.* from package_version_provides, package_version" \
 						  " where package_version_provides.package_version_id = package_version.id" \
 						  " and package_version_provides.package_version_id = package_version.id" \
 						  " and package_version.distro_id = " + str(self.distro_id) + "" \
-						  " and package_version_provides.name = '" + requirement.name + "'" \
+						  " and package_version_provides.name = '" + requirement_name + "'" \
 						  " " + version_clause + "" \
 						  " order by package_version_provides.version desc" \
 						  " limit 1"
@@ -651,21 +654,19 @@ class repo_ingestion:
 				# Don't know how to handle this type of requirement
 				else:
 					if self.debug:
-						print"   +",package_version.name,": cannot handle requirement type:",requirement.type
+						print"   + cannot handle requirement type:",requirement.type
 					continue
 
 				dependency = self.db.execute(sql).first()
 			
 				if not dependency:
 
-					print "  +",package_version.name
 					print "   +could not satisfy requirement:",requirement.name
 					continue
 				
 				else:
 					if self.debug:
-						print "  +",package_version.name
-						print "   + satisfied requirement",requirement.name,"with:",dependency.name,dependency.version,dependency.release
+						print "   + satisfied requirement",requirement.type,":",requirement.name,"with:",dependency.name,dependency.version,dependency.release
 			
 				# add the dep to the list only if we don't already have it
 				if dependency.id not in dependencies:
