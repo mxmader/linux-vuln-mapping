@@ -103,6 +103,21 @@ class repo_ingestion:
 		with open(file_path, 'r') as file_handle:
 			return file_handle.read()
 
+	# find the latest minor version of each major version & catalog them.
+	# we only care about those packages for group relationship purposes	
+	def get_latest_distro_versions(self):
+
+		latest_versions = {}
+
+		for distro in self.db.distro.all():
+			
+			version = distro.major_version + '.' + distro.minor_version
+			
+			if not distro.major_version in latest_versions.iterkeys() or int(distro.minor_version) > int(latest_versions[distro.major_version]):
+				latest_versions[distro.major_version] = distro.minor_version
+				
+		return latest_versions
+
 	# get the type of dependency or provided thing
 	def get_rpm_relation_type(self, name):
 		
@@ -137,7 +152,7 @@ class repo_ingestion:
 			if self.debug:
 				print " ",package.name,package.version
 			
-			distro_package_version = self.db.distro_package_version.insert(
+			package_version = self.db.package_version.insert(
 				distro_id = self.distro_id,
 				arch = package.arch,
 				checksum = package.pkgId,
@@ -159,8 +174,8 @@ class repo_ingestion:
 				# notice that the "name" property is cleansed of any non-ascii chars.
 				# as of this writing i don't feel like preserving chinese characters (utf-X)
 				# in font package feature names....
-				self.db.distro_package_version_provides.insert(
-					distro_package_version_id = distro_package_version.id,
+				self.db.package_version_provides.insert(
+					package_version_id = package_version.id,
 					flags = flags,
 					name = name.encode('ascii', 'ignore'),
 					type = self.get_rpm_relation_type(name),
@@ -172,8 +187,8 @@ class repo_ingestion:
 			for name, flags, epoch, version, release, pkgKey, pre in requires:
 
 				# see previous note about 'name' property sanitization
-				self.db.distro_package_version_requires.insert(
-					distro_package_version_id = distro_package_version.id,
+				self.db.package_version_requires.insert(
+					package_version_id = package_version.id,
 					flags = flags,
 					name = name.encode('ascii', 'ignore'),
 					type = self.get_rpm_relation_type(name),
@@ -195,15 +210,15 @@ class repo_ingestion:
 			
 			# find the package from DB
 			where = sqlalchemy.and_(
-				self.db.distro_package_version.checksum == package.pkgId,
-				self.db.distro_package_version.distro_id == self.distro_id
+				self.db.package_version.checksum == package.pkgId,
+				self.db.package_version.distro_id == self.distro_id
 			)
 
 			# fetch the package record
-			distro_package_version = self.db.distro_package_version.filter(where).first()
+			package_version = self.db.package_version.filter(where).first()
 
 			if self.debug:
-				print "  +", distro_package_version.name, "looking for changelogs"	
+				print "  +", package_version.name, "looking for changelogs"	
 				
 			for pkgKey, author, date, changelog in sqlite_db.execute("select * from changelog where pkgKey = " + str(package.pkgKey)):
 				
@@ -234,11 +249,11 @@ class repo_ingestion:
 
 						# make sure this relationship doesn't exist (dont bother checking the "no match" table)
 						where = sqlalchemy.and_(
-							self.db.distro_package_version_cve.distro_package_version_id == distro_package_version.id,
-							self.db.distro_package_version_cve.cve == cve
+							self.db.package_version_cve.package_version_id == package_version.id,
+							self.db.package_version_cve.cve == cve
 						)
 
-						cve_map_check = self.db.distro_package_version_cve.filter(where).first()
+						cve_map_check = self.db.package_version_cve.filter(where).first()
 						
 						# relationship is already mapped; move on to the next package/CVE pair
 						if cve_map_check:
@@ -251,8 +266,8 @@ class repo_ingestion:
 							if self.debug:
 								print "    + mapping to package & mitre list:",cve
 
-							self.db.distro_package_version_cve.insert(
-								distro_package_version_id = distro_package_version.id,
+							self.db.package_version_cve.insert(
+								package_version_id = package_version.id,
 								cve = cve
 							)
 
@@ -261,8 +276,8 @@ class repo_ingestion:
 							if self.debug:
 								print "    + mapping to package & no_match:",cve
 						
-							self.db.distro_package_version_cve_no_match.insert(
-								distro_package_version_id = distro_package_version.id,
+							self.db.package_version_cve_no_match.insert(
+								package_version_id = package_version.id,
 								cve = cve
 							)	
 							continue
@@ -282,15 +297,15 @@ class repo_ingestion:
 
 			# find the package from DB
 			where = sqlalchemy.and_(
-				self.db.distro_package_version.checksum == package.pkgId,
-				self.db.distro_package_version.distro_id == self.distro_id
+				self.db.package_version.checksum == package.pkgId,
+				self.db.package_version.distro_id == self.distro_id
 			)
 
 			# fetch the package record
-			distro_package_version = self.db.distro_package_version.filter(where).first()
+			package_version = self.db.package_version.filter(where).first()
 
 			if self.debug:
-				print "  +", distro_package_version.name, "looking for files/dirs"			
+				print "  +", package_version.name, "looking for files/dirs"			
 			
 			# collect the file names
 			for pkgKey, dirname, filenames, filetypes in sqlite_db.execute("select * from filelist where pkgKey = " + str(package.pkgKey)):
@@ -322,8 +337,8 @@ class repo_ingestion:
 					if self.debug:
 						print "   + adding", file_type + ":", file_path
 					
-					self.db.distro_package_version_file.insert(
-						distro_package_version_id = distro_package_version.id,
+					self.db.package_version_file.insert(
+						package_version_id = package_version.id,
 						name = file_path,
 						type = file_type
 					)
@@ -349,12 +364,13 @@ class repo_ingestion:
 			else:
 				description = ""
 			
-			my_package_group = self.db.distro_package_group.insert(
+			package_group = self.db.package_group.insert(
 				name = group.id.text,
 				description = description,
-				distro_id = distro_id
+				distro_id = self.distro_id
 			)
 			
+			# commit the package group so we get an ID for it from the DB
 			self.db.commit()
 
 			for package in group.packagelist.find_all('packagereq'):
@@ -362,17 +378,15 @@ class repo_ingestion:
 				if self.debug:	
 					print "   +",package.text
 				
-				# Find the ID for this high-level (versionless) package
-				my_package = self.db.package.filter(self.db.package.name == package.text).first()
-				
-				self.db.package_to_distro_group_map.insert(
-					package_id = my_package.id,
-					distro_package_group_id = my_package_group.id
+				self.db.package_group_package.insert(
+					package_group_id = package_group.id,
+					name = package.name
 				 )
 				 
 			if self.debug:
-				print " + committing group to package map"
-				
+				print " + committing package group:",group.id.text
+			
+			# commit all the packages to the group	
 			self.db.commit()
 
 	def ingest_filelists_xml(self, file_path):
@@ -392,16 +406,16 @@ class repo_ingestion:
 			
 			# find the package from DB
 			where = sqlalchemy.and_(
-				self.db.distro_package_version.arch == package['arch'],
-				self.db.distro_package_version.epoch == version_data['epoch'],
-				self.db.distro_package_version.name == package['name'],
-				self.db.distro_package_version.release == version_data['rel'],
-				self.db.distro_package_version.version == version_data['ver'],
-				self.db.distro_package_version.distro_id == self.distro_id
+				self.db.package_version.arch == package['arch'],
+				self.db.package_version.epoch == version_data['epoch'],
+				self.db.package_version.name == package['name'],
+				self.db.package_version.release == version_data['rel'],
+				self.db.package_version.version == version_data['ver'],
+				self.db.package_version.distro_id == self.distro_id
 			)
 
 			# fetch the package record
-			distro_package_version = self.db.distro_package_version.filter(where).first()
+			package_version = self.db.package_version.filter(where).first()
 			
 			# collect the file names
 			for file in package.find_all('file'):
@@ -416,8 +430,8 @@ class repo_ingestion:
 				if self.debug:
 					print "   + adding", file_type + ":", name
 					
-				self.db.distro_package_version_file.insert(
-					distro_package_version_id = distro_package_version.id,
+				self.db.package_version_file.insert(
+					package_version_id = package_version.id,
 					name = name,
 					type = file_type
 				)
@@ -438,16 +452,16 @@ class repo_ingestion:
 			version_data = package.find('version')
 			
 			where = sqlalchemy.and_(
-				self.db.distro_package_version.distro_id == self.distro_id,
-				self.db.distro_package_version.arch == package['arch'],
-				self.db.distro_package_version.epoch == version_data['epoch'],
-				self.db.distro_package_version.checksum == package['pkgid'],
-				self.db.distro_package_version.name == package['name'], 
-				self.db.distro_package_version.release == version_data['rel'],
-				self.db.distro_package_version.version == version_data['ver']
+				self.db.package_version.distro_id == self.distro_id,
+				self.db.package_version.arch == package['arch'],
+				self.db.package_version.epoch == version_data['epoch'],
+				self.db.package_version.checksum == package['pkgid'],
+				self.db.package_version.name == package['name'], 
+				self.db.package_version.release == version_data['rel'],
+				self.db.package_version.version == version_data['ver']
 			)
 
-			distro_package_version = self.db.distro_package_version.filter(where).first()
+			package_version = self.db.package_version.filter(where).first()
 			
 			for changelog in package.find_all('changelog'):
 				
@@ -478,11 +492,11 @@ class repo_ingestion:
 
 						# make sure this relationship doesn't exist (dont bother checking the "no match" table)
 						where = sqlalchemy.and_(
-							self.db.distro_package_version_cve.distro_package_version_id == distro_package_version.id,
-							self.db.distro_package_version_cve.cve == cve
+							self.db.package_version_cve.package_version_id == package_version.id,
+							self.db.package_version_cve.cve == cve
 						)
 
-						cve_map_check = self.db.distro_package_version_cve.filter(where).first()
+						cve_map_check = self.db.package_version_cve.filter(where).first()
 						
 						# relationship is already mapped; move on to the next package/CVE pair
 						if cve_map_check:
@@ -495,8 +509,8 @@ class repo_ingestion:
 							if self.debug:
 								print "    + mapping to package & mitre list:",cve
 
-							self.db.distro_package_version_cve.insert(
-								distro_package_version_id = distro_package_version.id,
+							self.db.package_version_cve.insert(
+								package_version_id = package_version.id,
 								cve = cve
 							)
 
@@ -505,8 +519,8 @@ class repo_ingestion:
 							if self.debug:
 								print "    + mapping to package & no_match:",cve
 						
-							self.db.distro_package_version_cve_no_match.insert(
-								distro_package_version_id = distro_package_version.id,
+							self.db.package_version_cve_no_match.insert(
+								package_version_id = package_version.id,
 								cve = cve
 							)	
 							continue
@@ -529,7 +543,7 @@ class repo_ingestion:
 			if self.debug:
 				print " ",name,package.version['ver']
 			
-			distro_package_version = self.db.distro_package_version.insert(
+			package_version = self.db.package_version.insert(
 				distro_id = self.distro_id,
 				arch = package.arch.text,
 				checksum = package.find('checksum', attrs={ 'pkgid' : 'YES'}).text,
@@ -548,8 +562,8 @@ class repo_ingestion:
 
 				function = self.fill_missing_package_dep_data(function)
 
-				self.db.distro_package_version_provides.insert(
-					distro_package_version_id = distro_package_version.id,
+				self.db.package_version_provides.insert(
+					package_version_id = package_version.id,
 					flags = function['flags'],
 					name = function['name'],
 					type = self.get_rpm_relation_type(function['name']),
@@ -562,8 +576,8 @@ class repo_ingestion:
 
 				dependency = self.fill_missing_package_dep_data(dependency)
 
-				self.db.distro_package_version_requires.insert(
-					distro_package_version_id = distro_package_version.id,
+				self.db.package_version_requires.insert(
+					package_version_id = package_version.id,
 					flags = dependency['flags'],
 					name = dependency['name'],
 					type = self.get_rpm_relation_type(dependency['name']),
@@ -573,4 +587,99 @@ class repo_ingestion:
 			if self.debug:
 				print "   Committing requirements and provided functionality"
 				
-			self.db.commit()		
+			self.db.commit()
+			
+	def map_dependencies(self):
+		
+		print " + mapping dependencies"
+
+		for package_version in self.db.package_version.filter(self.db.package_version.distro_id == self.distro_id):
+			
+			if self.debug:
+				print "  +",package_version.name
+			
+			requirements = self.db.package_version_requires.filter(self.db.package_version_requires.package_version_id == package_version.id).all()
+			
+			if not requirements:
+				if self.debug:
+					print "  +",package_version.name,"has no requirements"
+				continue
+			
+			for requirement in requirements:
+				
+				dependency = None
+				dependencies = []
+				operator = ''
+				version_clause = ''
+				
+				if requirement.type == 'library' or requirement.type == 'package':
+				
+				    # some requirements explicitly state their comparator and version
+					if requirement.flags and requirement.version:
+					
+						if requirement.flags == 'EQ':
+							operator = '='
+						elif requirement.flags == 'GT':
+							operator = '>'
+						elif requirement.flags == 'GE':
+							operator = '>='
+						elif requirement.flags == 'LT':
+							operator = '<'
+						elif requirement.flags == 'LE':
+							operator = '<='
+							
+						version_clause = " and package_provides.version " + operator + " '" + requirement.version + "'"
+					
+					sql = "select package_version.* from package_version_provides, package_version" \
+						  " where package_version_provides.package_version_id = package_version.id" \
+						  " and package_version_provides.package_version_id = package_version.id" \
+						  " and package_version.distro_id = " + str(self.distro_id) + "" \
+						  " and package_version_provides.name = '" + requirement.name + "'" \
+						  " " + version_clause + "" \
+						  " order by package_version_provides.version desc" \
+						  " limit 1"
+				
+				elif requirement.type == 'file':
+					
+					sql = "select package_version.* from package_version, package_version_file" \
+						  " where package_version.id = package_version_file.package_version_id" \
+						  " and package_version_file.name = '" + requirement.name + "'" \
+						  " and package_version.distro_id = " + str(self.distro_id) + "" \
+						  " order by package_version.version desc" \
+						  " limit 1"
+
+				# Don't know how to handle this type of requirement
+				else:
+					if self.debug:
+						print"   +",package_version.name,": cannot handle requirement type:",requirement.type
+					continue
+
+				dependency = self.db.execute(sql).first()
+			
+				if not dependency:
+
+					print "  +",package_version.name
+					print "   +could not satisfy requirement:",requirement.name
+					continue
+				
+				else:
+					if self.debug:
+						print "  +",package_version.name
+						print "   + satisfied requirement",requirement.name,"with:",dependency.name,dependency.version,dependency.release
+			
+				# add the dep to the list only if we don't already have it
+				if dependency.id not in dependencies:
+					dependencies.append(dependency.id)
+			
+			for package_id in dependencies:
+
+				self.db.package_to_required_package_map.insert(
+						package_version_id = package_id,
+						required_package_version_id = dependency.id
+				)
+			
+			if self.debug:
+				print "  + Committing package dependencies"
+
+			self.db.commit()
+

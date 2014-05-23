@@ -49,25 +49,6 @@ for major_version in sorted(latest_versions):
 		db.distro.major_version == major_version,
 		db.distro.minor_version == latest_versions[major_version]
 	)
-
-	distro = db.distro.filter(where).one()
-	distro_package_versions = db.distro_package_version.filter(db.distro_package_version.distro_id == distro.id).all()
-	
-	for distro_package_version in distro_package_versions:
-		
-		if self.debug:
-			print "  + catalogging",distro_package_version.name
-			
-		package = db.package.insert(
-			name = distro_package_version.name,
-			distro_id = distro.id,
-			distro_package_version_id = distro_package_version.id
-		)
-		
-	if self.debug:
-		print " + committing"
-	
-	db.commit()
 	
 	# ingest the package group info & map distro-latest packages by name
 	repo_type = 'os'
@@ -102,14 +83,12 @@ for major_version in sorted(latest_versions):
 		# go through each requirement and find a package to satisfy it
 		for requirement in requirements:
 
-			satisfied_by = db.distro_package_version_provides.filter(where).first()
-			
-			if not satisfied_by:
-				if self.debug:
-					print "  + could not satisfy requirement:",requirement.id
-				continue
-			
 			if requirement.type == 'library' or requirement.type == 'package':
+
+				sql = "select distro_package_version.* from distro_package_version where id = " + distro.id + \
+					  "and 
+					  
+					  "order by distro_package_version.version DESC"
 
 				where = sqlite.and_(
 					db.distro_package_version_provides.flags == requirement.flags,
@@ -119,6 +98,11 @@ for major_version in sorted(latest_versions):
 				)
 
 				satisfied_by = db.distro_package_version_provides.filter(where).first()
+
+				if not satisfied_by:
+					if self.debug:
+						print "  + could not satisfy requirement:",requirement.id
+					continue
 
 				if self.debug:
 					print "  + requirement",requirement.id,"satisfied by:",satisfied_by.id

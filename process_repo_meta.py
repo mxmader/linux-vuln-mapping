@@ -10,7 +10,7 @@ import sys
 distro = "centos"
 distro_file = distro + "_repo_meta_sources.json"
 download_base_dir = distro + "_repo_meta"
-debug = False
+debug = True
 
 # set debug level for utility classes
 repo_ingestion.debug = debug
@@ -18,12 +18,13 @@ distro_ingestion.debug = debug
 
 # define the ingestion sequence
 ingestion_sequence = [
-	{ "os" : "primary" },
-	{ "os" : "filelists" },
-	{ "os" : "other" },
-	{ "updates" : "primary" },
-	{ "updates" : "filelists" },
-	{ "updates" : "other" }
+	#{ "os" : "primary" },
+	#{ "os" : "filelists" },
+	#{ "os" : "other" },
+	#{ "os" : "comps" }
+	#{ "updates" : "primary" },
+	#{ "updates" : "filelists" },
+	#{ "updates" : "other" }
 ]
 
 with open(distro_file, 'r') as file_handle:
@@ -52,6 +53,7 @@ for version in version_list:
 	repo_ingestor = repo_ingestion(distro_id, major_version)
 	
 	for ingestion in ingestion_sequence:
+		
 		for repo_type,meta_type in ingestion.iteritems():
 			
 			# the desired meta type isn't available. this happens typically when "comps" are not there in old major versions.
@@ -68,3 +70,7 @@ for version in version_list:
 			repo_func_name = "ingest_" + meta_type + "_" + repo_attributes['data_type']
 			repo_func = getattr(repo_ingestor, repo_func_name)
 			repo_func(file_path)
+		
+	# At this point all meta types should be ingested. Now we can form
+	# relationships (requires) between package versions
+	repo_ingestor.map_dependencies()
