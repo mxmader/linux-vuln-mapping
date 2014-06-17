@@ -38,7 +38,7 @@ for mitre_file in files:
 	if debug:
 		print "init db object"
 
-	db = sqlsoup.SQLSoup('mysql://linux-meta:fershuretotallybro@localhost/linux-meta')
+	db = sqlsoup.SQLSoup('mysql://linux-meta:fershuretotallybro@localhost/linuxmeta')
 	
 	print " + Mapping CVE data"
 	

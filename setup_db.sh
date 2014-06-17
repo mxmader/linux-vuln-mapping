@@ -1,9 +1,9 @@
 #!/bin/bash
 
-db_name=linux-meta
+db_name=linuxmeta
 db_user=linux-meta
 db_pwd=fershuretotallybro
-db_schema_file=linux-meta.sql
+db_schema_file=linuxmeta.sql
 
 echo "Dropping / Creating database instance: $db_name"
 mysqladmin -uroot -p$db_root_pw --force drop $db_name

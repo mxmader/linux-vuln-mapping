@@ -12,7 +12,7 @@ class distro_ingestion:
 	distro_name = "CentOS"
 	distro_family = "enterprise"
 		
-	db = sqlsoup.SQLSoup('mysql://linux-meta:fershuretotallybro@localhost/linux-meta')
+	db = sqlsoup.SQLSoup('mysql://linux-meta:fershuretotallybro@localhost/linuxmeta')
 	debug = False
 	
 	def __init__(self):
@@ -55,7 +55,7 @@ class distro_ingestion:
 
 class repo_ingestion:
 	
-	db = sqlsoup.SQLSoup('mysql://linux-meta:fershuretotallybro@localhost/linux-meta')
+	db = sqlsoup.SQLSoup('mysql://linux-meta:fershuretotallybro@localhost/linuxmeta')
 	debug = False
 	
 	distro_id = None

@@ -10,7 +10,7 @@ import sys
 distro = "centos"
 distro_file = distro + "_repo_meta_sources.json"
 download_base_dir = distro + "_repo_meta"
-debug = True
+debug = False
 
 # set debug level for utility classes
 repo_ingestion.debug = debug
@@ -18,13 +18,13 @@ distro_ingestion.debug = debug
 
 # define the ingestion sequence
 ingestion_sequence = [
-	#{ "os" : "primary" },
-	#{ "os" : "filelists" },
-	#{ "os" : "other" },
-	#{ "os" : "comps" }
-	#{ "updates" : "primary" },
-	#{ "updates" : "filelists" },
-	#{ "updates" : "other" }
+	{ "os" : "primary" },
+	{ "os" : "filelists" },
+	{ "os" : "other" },
+	{ "os" : "comps" },
+	{ "updates" : "primary" },
+	{ "updates" : "filelists" },
+	{ "updates" : "other" }
 ]
 
 with open(distro_file, 'r') as file_handle:
