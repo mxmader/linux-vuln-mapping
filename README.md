@@ -1,4 +1,4 @@
-# Linux Metadata builder
+# Enterprise Linux Vulnerability Mapping
 
 The scripts in this repo are aimed at composing data elements suitable for populating an RDBMS with the following metadata 
 of Enterprise Linux (RHEL, CentOS, Scientific Linux, and Oracle Linux) and its upstream sources (Fedora):
