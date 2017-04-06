@@ -73,8 +73,8 @@ These steps retained here for future use.
 
 ## References
 
-[CentOS Vault](http://vault.centos.org/)
-[MITRE CVE Data](https://cve.mitre.org/data/downloads/)
-[MITRE CWE Info](http://cwe.mitre.org/data/index.html)\
-[NIST Vulnerability Datasets](http://nvd.nist.gov/)
-[NIST NVD/CVE Data](http://nvd.nist.gov/download.cfm#CVE_FEED)
+[CentOS Vault](http://vault.centos.org/)]
+[MITRE CVE Data](https://cve.mitre.org/data/downloads/)]
+[MITRE CWE Info](http://cwe.mitre.org/data/index.html)]
+[NIST Vulnerability Datasets](http://nvd.nist.gov/)]
+[NIST NVD/CVE Data](http://nvd.nist.gov/download.cfm#CVE_FEED)]
